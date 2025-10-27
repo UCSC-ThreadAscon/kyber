@@ -3,95 +3,108 @@
 #include <stdlib.h>
 #include "randombytes.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#include <wincrypt.h>
-#else
-#include <fcntl.h>
-#include <errno.h>
-#ifdef __linux__
-#define _GNU_SOURCE
-#include <unistd.h>
-#include <sys/syscall.h>
-#elif __NetBSD__
-#include <sys/random.h>
-#else
-#include <unistd.h>
-#endif
-#endif
+#include <esp_random.h>
 
-#ifdef _WIN32
+// https://github.com/pq-code-package/mlkem-c-embedded/blob/main/hal/randombytes.c#L6
 void randombytes(uint8_t *out, size_t outlen) {
-  HCRYPTPROV ctx;
-  size_t len;
+    // NOTE:
+    // After enabling the internal entropy source (SAR ADC), random numbers are generated based on the thermal noise in the system and the asynchronous clock mismatch.
+    // For more detail please refer to https://docs.espressif.com/projects/esp-idf/en/v5.3/esp32c3/api-reference/system/random.html and the technical reference manual
+    esp_fill_random(out, outlen);
 
-  if(!CryptAcquireContext(&ctx, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
-    abort();
-
-  while(outlen > 0) {
-    len = (outlen > 1048576) ? 1048576 : outlen;
-    if(!CryptGenRandom(ctx, len, (BYTE *)out))
-      abort();
-
-    out += len;
-    outlen -= len;
-  }
-
-  if(!CryptReleaseContext(ctx, 0))
-    abort();
+    return;
 }
-#elif defined(__linux__) && defined(SYS_getrandom)
-void randombytes(uint8_t *out, size_t outlen) {
-  ssize_t ret;
 
-  while(outlen > 0) {
-    ret = syscall(SYS_getrandom, out, outlen, 0);
-    if(ret == -1 && errno == EINTR)
-      continue;
-    else if(ret == -1)
-      abort();
 
-    out += ret;
-    outlen -= ret;
-  }
-}
-#elif defined(__NetBSD__)
-void randombytes(uint8_t *out, size_t outlen) {
-  ssize_t ret;
+// #ifdef _WIN32
+// #include <windows.h>
+// #include <wincrypt.h>
+// #else
+// #include <fcntl.h>
+// #include <errno.h>
+// #ifdef __linux__
+// #define _GNU_SOURCE
+// #include <unistd.h>
+// #include <sys/syscall.h>
+// #elif __NetBSD__
+// #include <sys/random.h>
+// #else
+// #include <unistd.h>
+// #endif
+// #endif
 
-  while(outlen > 0) {
-    ret = getrandom(out, outlen, 0);
-    if(ret == -1 && errno == EINTR)
-      continue;
-    else if(ret == -1)
-      abort();
+// #ifdef _WIN32
+// void randombytes(uint8_t *out, size_t outlen) {
+//   HCRYPTPROV ctx;
+//   size_t len;
 
-    out += ret;
-    outlen -= ret;
-  }
-}
-#else
-void randombytes(uint8_t *out, size_t outlen) {
-  static int fd = -1;
-  ssize_t ret;
+//   if(!CryptAcquireContext(&ctx, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
+//     abort();
 
-  while(fd == -1) {
-    fd = open("/dev/urandom", O_RDONLY);
-    if(fd == -1 && errno == EINTR)
-      continue;
-    else if(fd == -1)
-      abort();
-  }
+//   while(outlen > 0) {
+//     len = (outlen > 1048576) ? 1048576 : outlen;
+//     if(!CryptGenRandom(ctx, len, (BYTE *)out))
+//       abort();
 
-  while(outlen > 0) {
-    ret = read(fd, out, outlen);
-    if(ret == -1 && errno == EINTR)
-      continue;
-    else if(ret == -1)
-      abort();
+//     out += len;
+//     outlen -= len;
+//   }
 
-    out += ret;
-    outlen -= ret;
-  }
-}
-#endif
+//   if(!CryptReleaseContext(ctx, 0))
+//     abort();
+// }
+// #elif defined(__linux__) && defined(SYS_getrandom)
+// void randombytes(uint8_t *out, size_t outlen) {
+//   ssize_t ret;
+
+//   while(outlen > 0) {
+//     ret = syscall(SYS_getrandom, out, outlen, 0);
+//     if(ret == -1 && errno == EINTR)
+//       continue;
+//     else if(ret == -1)
+//       abort();
+
+//     out += ret;
+//     outlen -= ret;
+//   }
+// }
+// #elif defined(__NetBSD__)
+// void randombytes(uint8_t *out, size_t outlen) {
+//   ssize_t ret;
+
+//   while(outlen > 0) {
+//     ret = getrandom(out, outlen, 0);
+//     if(ret == -1 && errno == EINTR)
+//       continue;
+//     else if(ret == -1)
+//       abort();
+
+//     out += ret;
+//     outlen -= ret;
+//   }
+// }
+// #else
+// void randombytes(uint8_t *out, size_t outlen) {
+//   static int fd = -1;
+//   ssize_t ret;
+
+//   while(fd == -1) {
+//     fd = open("/dev/urandom", O_RDONLY);
+//     if(fd == -1 && errno == EINTR)
+//       continue;
+//     else if(fd == -1)
+//       abort();
+//   }
+
+//   while(outlen > 0) {
+//     ret = read(fd, out, outlen);
+//     if(ret == -1 && errno == EINTR)
+//       continue;
+//     else if(ret == -1)
+//       abort();
+
+//     out += ret;
+//     outlen -= ret;
+//   }
+// }
+// #endif
